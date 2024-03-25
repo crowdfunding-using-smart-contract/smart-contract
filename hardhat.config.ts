@@ -2,6 +2,7 @@ import { task } from "hardhat/config"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { BigNumber } from "ethers"
 import "@nomiclabs/hardhat-waffle"
+require('dotenv').config();
 
 // When using the hardhat network, you may choose to fork Fuji or Avalanche Mainnet
 // This will allow you to debug contracts using the hardhat network while keeping the current network state
@@ -61,9 +62,9 @@ export default {
       forking: forkingData
     },
     local: {
-      url: 'http://localhost:9650/ext/bc/C/rpc',
+      url: process.env.LOCAL_URL,
       gasPrice: 225000000000,
-      chainId: 43112,
+      chainId: parseInt(process.env.LOCAL_CHAIN_ID, 10),
       accounts: [
         "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
         "0x7b4198529994b0dc604278c99d153cfd069d594753d471171a1d102a10438e07",
