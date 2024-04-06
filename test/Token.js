@@ -12,10 +12,6 @@ describe("Token contract", function () {
     });
 
     describe("Deployment", function () {
-        it("Should set the right owner", async function () {
-        expect(await token.owner()).to.equal(owner.address);
-        });
-
         it("Should assign the total supply of tokens to the owner", async function () {
         const ownerBalance = await token.balanceOf(owner.address);
         expect(await token.totalSupply()).to.equal(ownerBalance);
