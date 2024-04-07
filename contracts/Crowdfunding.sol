@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract Crowdfunding is ReentrancyGuard, Ownable {
-    using Counters for Counters.Counter;
-    Counters.Counter private _projectIds;
+contract Crowdfunding is Ownable {
     IERC20 private _token;
+
+    constructor(IERC20 tokenAddress, address initialOwner) Ownable(initialOwner) {
+        _token = tokenAddress;
+    }
 
     struct Project {
         uint256 id;
@@ -30,15 +30,12 @@ contract Crowdfunding is ReentrancyGuard, Ownable {
         UNSUCCESSFUL
     }
 
+    uint256 private _projectIds;
     mapping(uint256 => Project) public projects;
 
     event ProjectCreated(uint256 indexed projectId, string title, address owner);
     event ContributionMade(uint256 indexed projectId, uint256 amount, address contributor);
     event ContributionRefunded(uint256 indexed projectId, address contributor);
-
-    constructor(IERC20 tokenAddress) {
-        _token = tokenAddress;
-    }
 
     function createProject(
         string memory title,
@@ -47,8 +44,8 @@ contract Crowdfunding is ReentrancyGuard, Ownable {
         uint256 startDate,
         uint256 endDate
     ) public {
-        _projectIds.increment();
-        uint256 newProjectId = _projectIds.current();
+        _projectIds++;
+        uint256 newProjectId = _projectIds;
 
         projects[newProjectId] = Project({
             id: newProjectId,
@@ -79,7 +76,7 @@ contract Crowdfunding is ReentrancyGuard, Ownable {
     }
 
     function getAllProjects(STATUS filterStatus) public view returns (uint256[] memory) {
-        uint256 projectCount = _projectIds.current();
+        uint256 projectCount = _projectIds;
         uint256 filteredCount = 0;
 
         for (uint256 i = 1; i <= projectCount; i++) {
