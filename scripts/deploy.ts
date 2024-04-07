@@ -1,20 +1,18 @@
-import { 
-  Contract, 
-  ContractFactory 
-} from "ethers"
-import { ethers } from "hardhat"
+import { ethers } from "hardhat";
 
-const main = async(): Promise<any> => {
-  const Coin: ContractFactory = await ethers.getContractFactory("ExampleERC20")
-  const coin: Contract = await Coin.deploy()
+async function main() {
+    const Token = await ethers.getContractFactory("Token");
+    const token = await Token.deploy("OToken", "OTK", ethers.utils.parseEther("1000000"));
+    await token.deployed();
+    console.log(`Token deployed to: ${token.address}`);
 
-  await coin.deployed()
-  console.log(`Coin deployed to: ${coin.address}`)
+    const Crowdfunding = await ethers.getContractFactory("Crowdfunding");
+    const crowdfunding = await Crowdfunding.deploy(token.address);
+    await crowdfunding.deployed();
+    console.log(`Crowdfunding deployed to: ${crowdfunding.address}`);
 }
 
-main()
-.then(() => process.exit(0))
-.catch(error => {
-  console.error(error)
-  process.exit(1)
-})
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

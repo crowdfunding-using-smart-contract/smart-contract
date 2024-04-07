@@ -27,7 +27,7 @@ task("accounts", "Prints the list of accounts", async (args, hre): Promise<void>
 
 task("balances", "Prints the list of AVAX account balances", async (args, hre): Promise<void> => {
   const accounts: SignerWithAddress[] = await hre.ethers.getSigners()
-  for(const account of accounts){
+  for (const account of accounts) {
     const balance: BigNumber = await hre.ethers.provider.getBalance(
       account.address
     );
