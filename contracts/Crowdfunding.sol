@@ -1,166 +1,174 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-// import "@openzeppelin/contracts/utils/Counters.sol";
-// import "@openzeppelin/contracts/access/Ownable.sol";
-// // import "./Token.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Token.sol";
 
-// contract Crowdfunding is ReentrancyGuard, Ownable {
-//     using Counters for Counters.Counter;
-//     Counters.Counter private _projectIds;
+contract Crowdfunding is ReentrancyGuard, Ownable {
+    using Counters for Counters.Counter;
+    Counters.Counter private _projectIds;
 
-//     struct Project {
-//         uint256 id;
-//         string title;
-//         string subTitle;
-//         string description;
-//         string categoryID;
-//         string subCategoryID;
-//         string location;
-//         uint256 targetFunding;
-//         uint256 currentFunding;
-//         uint256 startDate;
-//         uint256 endDate;
-//         uint256 launchDate;
-//         address owner;
-//         bool isFunded;
-//         STATUS status;
-//     }
+    struct Project {
+        uint256 id;
+        string title;
+        string subTitle;
+        string description;
+        string categoryID;
+        string subCategoryID;
+        string location;
+        uint256 targetFunding;
+        uint256 currentFunding;
+        uint256 startDate;
+        uint256 endDate;
+        uint256 launchDate;
+        address owner;
+        bool isFunded;
+        STATUS status;
+    }
 
-//     enum STATUS {
-//         ACTIVE,
-//         DELETED,
-//         SUCCESSFUL,
-//         UNSUCCESSFUL
-//     }
+    enum STATUS {
+        ACTIVE,
+        DELETED,
+        SUCCESSFUL,
+        UNSUCCESSFUL
+    }
 
-//     mapping(uint256 => Project) public projects;
+    mapping(uint256 => Project) public projects;
 
-//     event ProjectCreated(
-//         uint256 indexed projectId,
-//         string title,
-//         address owner
-//     );
+    event ProjectCreated(
+        uint256 indexed projectId,
+        string title,
+        address owner
+    );
 
-//     function createProject(
-//         string memory title,
-//         string memory subTitle,
-//         string memory description,
-//         string memory categoryID,
-//         string memory subCategoryID,
-//         string memory location,
-//         uint256 targetFunding,
-//         uint256 startDate,
-//         uint256 endDate,
-//         uint256 launchDate
-//     ) public {
-//         _projectIds.increment();
-//         uint256 newProjectId = _projectIds.current();
+    event ContributionMade(uint256 projectId, uint256 amount);
 
-//         projects[newProjectId] = Project({
-//             id: newProjectId,
-//             title: title,
-//             subTitle: subTitle,
-//             description: description,
-//             categoryID: categoryID,
-//             subCategoryID: subCategoryID,
-//             location: location,
-//             targetFunding: targetFunding,
-//             currentFunding: 0,
-//             startDate: startDate,
-//             endDate: endDate,
-//             launchDate: launchDate,
-//             owner: msg.sender,
-//             isFunded: false,
-//             status: STATUS.ACTIVE
-//         });
+    event ContributionRefund(uint256 projectId);
 
-//         emit ProjectCreated(newProjectId, title, msg.sender);
-//     }
+    function createProject(
+        string memory title,
+        string memory subTitle,
+        string memory description,
+        string memory categoryID,
+        string memory subCategoryID,
+        string memory location,
+        uint256 targetFunding,
+        uint256 startDate,
+        uint256 endDate,
+        uint256 launchDate
+    ) public {
+        _projectIds.increment();
+        uint256 newProjectId = _projectIds.current();
 
-//     // function contribute(uint256 projectId, uint256 amount) public {}
+        projects[newProjectId] = Project({
+            id: newProjectId,
+            title: title,
+            subTitle: subTitle,
+            description: description,
+            categoryID: categoryID,
+            subCategoryID: subCategoryID,
+            location: location,
+            targetFunding: targetFunding,
+            currentFunding: 0,
+            startDate: startDate,
+            endDate: endDate,
+            launchDate: launchDate,
+            owner: msg.sender,
+            isFunded: false,
+            status: STATUS.ACTIVE
+        });
 
-//     // function refund(uint256 projectId) public {}
+        emit ProjectCreated(newProjectId, title, msg.sender);
+    }
 
-//     function deleteProject(uint256 projectId) public {
-//         require(msg.sender == projects[projectId].owner, "Only the owner can delete the project.");
-//         projects[projectId].status = STATUS.DELETED;
-//     }
+    function contribute(uint256 projectId, uint256 amount) public {
+        emit ContributionMade(projectId, amount);
+    }
 
-//     function getAllProjects(STATUS filterStatus) public view returns (uint256[] memory) {
-//         uint256 projectCount = _projectIds.current();
-//         uint256 filteredCount = 0;
+    function refund(uint256 projectId) public {
+        emit ContributionRefund(projectId);
+    }
 
-//         for (uint256 i = 1; i <= projectCount; i++) {
-//             if (projects[i].status == filterStatus) {
-//                 filteredCount++;
-//             }
-//         }
+    function deleteProject(uint256 projectId) public {
+        require(msg.sender == projects[projectId].owner, "Only the owner can delete the project.");
+        projects[projectId].status = STATUS.DELETED;
+    }
 
-//         uint256[] memory filteredProjects = new uint256[](filteredCount);
-//         uint256 filteredIndex = 0;
-//         for (uint256 i = 1; i <= projectCount; i++) {
-//             if (projects[i].status == filterStatus) {
-//                 filteredProjects[filteredIndex] = projects[i].id;
-//                 filteredIndex++;
-//             }
-//         }
+    function getAllProjects(STATUS filterStatus) public view returns (uint256[] memory) {
+        uint256 projectCount = _projectIds.current();
+        uint256 filteredCount = 0;
 
-//         return filteredProjects;
-//     }
+        for (uint256 i = 1; i <= projectCount; i++) {
+            if (projects[i].status == filterStatus) {
+                filteredCount++;
+            }
+        }
 
-//     function getProject(uint256 projectId) public view returns (Project memory) {
-//         return projects[projectId];
-//     }
+        uint256[] memory filteredProjects = new uint256[](filteredCount);
+        uint256 filteredIndex = 0;
+        for (uint256 i = 1; i <= projectCount; i++) {
+            if (projects[i].status == filterStatus) {
+                filteredProjects[filteredIndex] = projects[i].id;
+                filteredIndex++;
+            }
+        }
 
-//     function editProject(
-//         uint256 projectId,
-//         string memory title,
-//         string memory subTitle,
-//         string memory description,
-//         string memory categoryID,
-//         string memory subCategoryID,
-//         string memory location,
-//         uint256 targetFunding,
-//         uint256 startDate,
-//         uint256 endDate,
-//         uint256 launchDate
-//     ) public {
-//         require(msg.sender == projects[projectId].owner, "Only the owner can edit the project.");
-//         Project storage project = projects[projectId];
+        return filteredProjects;
+    }
 
-//         // Check for non-empty strings and non-sentinel values before updating
-//         if (bytes(title).length > 0) {
-//             project.title = title;
-//         }
-//         if (bytes(subTitle).length > 0) {
-//             project.subTitle = subTitle;
-//         }
-//         if (bytes(description).length > 0) {
-//             project.description = description;
-//         }
-//         if (bytes(categoryID).length > 0) {
-//             project.categoryID = categoryID;
-//         }
-//         if (bytes(subCategoryID).length > 0) {
-//             project.subCategoryID = subCategoryID;
-//         }
-//         if (bytes(location).length > 0) {
-//             project.location = location;
-//         }
-//         if (targetFunding != 0) {
-//             project.targetFunding = targetFunding;
-//         }
-//         if (startDate != 0) {
-//             project.startDate = startDate;
-//         }
-//         if (endDate != 0) {
-//             project.endDate = endDate;
-//         }
-//         if (launchDate != 0) {
-//             project.launchDate = launchDate;
-//         }
-//     }
+    function getProject(uint256 projectId) public view returns (Project memory) {
+        return projects[projectId];
+    }
 
-// }
+    function editProject(
+        uint256 projectId,
+        string memory title,
+        string memory subTitle,
+        string memory description,
+        string memory categoryID,
+        string memory subCategoryID,
+        string memory location,
+        uint256 targetFunding,
+        uint256 startDate,
+        uint256 endDate,
+        uint256 launchDate
+    ) public {
+        require(msg.sender == projects[projectId].owner, "Only the owner can edit the project.");
+        Project storage project = projects[projectId];
+
+        // Check for non-empty strings and non-sentinel values before updating
+        if (bytes(title).length > 0) {
+            project.title = title;
+        }
+        if (bytes(subTitle).length > 0) {
+            project.subTitle = subTitle;
+        }
+        if (bytes(description).length > 0) {
+            project.description = description;
+        }
+        if (bytes(categoryID).length > 0) {
+            project.categoryID = categoryID;
+        }
+        if (bytes(subCategoryID).length > 0) {
+            project.subCategoryID = subCategoryID;
+        }
+        if (bytes(location).length > 0) {
+            project.location = location;
+        }
+        if (targetFunding != 0) {
+            project.targetFunding = targetFunding;
+        }
+        if (startDate != 0) {
+            project.startDate = startDate;
+        }
+        if (endDate != 0) {
+            project.endDate = endDate;
+        }
+        if (launchDate != 0) {
+            project.launchDate = launchDate;
+        }
+    }
+
+}
