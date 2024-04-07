@@ -4,27 +4,22 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./Token.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Crowdfunding is ReentrancyGuard, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _projectIds;
+    IERC20 private _token;
 
     struct Project {
         uint256 id;
         string title;
-        string subTitle;
         string description;
-        string categoryID;
-        string subCategoryID;
-        string location;
         uint256 targetFunding;
         uint256 currentFunding;
         uint256 startDate;
         uint256 endDate;
-        uint256 launchDate;
         address owner;
-        bool isFunded;
         STATUS status;
     }
 
@@ -37,27 +32,20 @@ contract Crowdfunding is ReentrancyGuard, Ownable {
 
     mapping(uint256 => Project) public projects;
 
-    event ProjectCreated(
-        uint256 indexed projectId,
-        string title,
-        address owner
-    );
+    event ProjectCreated(uint256 indexed projectId, string title, address owner);
+    event ContributionMade(uint256 indexed projectId, uint256 amount, address contributor);
+    event ContributionRefunded(uint256 indexed projectId, address contributor);
 
-    event ContributionMade(uint256 projectId, uint256 amount);
-
-    event ContributionRefund(uint256 projectId);
+    constructor(IERC20 tokenAddress) {
+        _token = tokenAddress;
+    }
 
     function createProject(
         string memory title,
-        string memory subTitle,
         string memory description,
-        string memory categoryID,
-        string memory subCategoryID,
-        string memory location,
         uint256 targetFunding,
         uint256 startDate,
-        uint256 endDate,
-        uint256 launchDate
+        uint256 endDate
     ) public {
         _projectIds.increment();
         uint256 newProjectId = _projectIds.current();
@@ -65,18 +53,12 @@ contract Crowdfunding is ReentrancyGuard, Ownable {
         projects[newProjectId] = Project({
             id: newProjectId,
             title: title,
-            subTitle: subTitle,
             description: description,
-            categoryID: categoryID,
-            subCategoryID: subCategoryID,
-            location: location,
             targetFunding: targetFunding,
             currentFunding: 0,
             startDate: startDate,
             endDate: endDate,
-            launchDate: launchDate,
             owner: msg.sender,
-            isFunded: false,
             status: STATUS.ACTIVE
         });
 
@@ -84,11 +66,11 @@ contract Crowdfunding is ReentrancyGuard, Ownable {
     }
 
     function contribute(uint256 projectId, uint256 amount) public {
-        emit ContributionMade(projectId, amount);
+        emit ContributionMade(projectId, amount, msg.sender);
     }
 
     function refund(uint256 projectId) public {
-        emit ContributionRefund(projectId);
+        emit ContributionRefunded(projectId, msg.sender);
     }
 
     function deleteProject(uint256 projectId) public {
@@ -125,37 +107,19 @@ contract Crowdfunding is ReentrancyGuard, Ownable {
     function editProject(
         uint256 projectId,
         string memory title,
-        string memory subTitle,
         string memory description,
-        string memory categoryID,
-        string memory subCategoryID,
-        string memory location,
         uint256 targetFunding,
         uint256 startDate,
-        uint256 endDate,
-        uint256 launchDate
+        uint256 endDate
     ) public {
         require(msg.sender == projects[projectId].owner, "Only the owner can edit the project.");
         Project storage project = projects[projectId];
 
-        // Check for non-empty strings and non-sentinel values before updating
         if (bytes(title).length > 0) {
             project.title = title;
         }
-        if (bytes(subTitle).length > 0) {
-            project.subTitle = subTitle;
-        }
         if (bytes(description).length > 0) {
             project.description = description;
-        }
-        if (bytes(categoryID).length > 0) {
-            project.categoryID = categoryID;
-        }
-        if (bytes(subCategoryID).length > 0) {
-            project.subCategoryID = subCategoryID;
-        }
-        if (bytes(location).length > 0) {
-            project.location = location;
         }
         if (targetFunding != 0) {
             project.targetFunding = targetFunding;
@@ -166,9 +130,5 @@ contract Crowdfunding is ReentrancyGuard, Ownable {
         if (endDate != 0) {
             project.endDate = endDate;
         }
-        if (launchDate != 0) {
-            project.launchDate = launchDate;
-        }
     }
-
 }
