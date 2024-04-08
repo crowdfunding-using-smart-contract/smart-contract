@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -33,9 +33,11 @@ contract Crowdfunding is Ownable {
     uint256 private _projectIds;
     mapping(uint256 => Project) public projects;
 
+    mapping(uint256 => mapping(address => uint256)) public contributions;
+
     event ProjectCreated(uint256 indexed projectId, string title, address owner);
     event ContributionMade(uint256 indexed projectId, uint256 amount, address contributor);
-    event ContributionRefunded(uint256 indexed projectId, address contributor);
+    event ContributionRefunded(uint256 indexed projectId, uint256 amount, address contributor);
 
     function createProject(
         string memory title,
@@ -63,11 +65,30 @@ contract Crowdfunding is Ownable {
     }
 
     function contribute(uint256 projectId, uint256 amount) public {
+        Project storage project = projects[projectId];
+        require(project.status == STATUS.ACTIVE, "Project must be active");
+        require(block.timestamp >= project.startDate && block.timestamp <= project.endDate, "Project not in funding period");
+        require(_token.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
+
+        project.currentFunding += amount;
+        contributions[projectId][msg.sender] += amount;
         emit ContributionMade(projectId, amount, msg.sender);
+        
+        if (project.currentFunding >= project.targetFunding) {
+            project.status = STATUS.SUCCESSFUL;
+        }
     }
 
     function refund(uint256 projectId) public {
-        emit ContributionRefunded(projectId, msg.sender);
+        Project storage project = projects[projectId];
+        require(project.status == STATUS.UNSUCCESSFUL || block.timestamp > project.endDate, "Refunds not allowed");
+        uint256 contributedAmount = contributions[projectId][msg.sender];
+        require(contributedAmount > 0, "No contributions to refund");
+
+        contributions[projectId][msg.sender] = 0; // Prevent re-entrancy
+        require(_token.transfer(msg.sender, contributedAmount), "Refund failed");
+
+        emit ContributionRefunded(projectId, contributedAmount, msg.sender);
     }
 
     function deleteProject(uint256 projectId) public {
@@ -118,13 +139,13 @@ contract Crowdfunding is Ownable {
         if (bytes(description).length > 0) {
             project.description = description;
         }
-        if (targetFunding != 0) {
+        if (targetFunding > 0) {
             project.targetFunding = targetFunding;
         }
-        if (startDate != 0) {
+        if (startDate > 0) {
             project.startDate = startDate;
         }
-        if (endDate != 0) {
+        if (endDate > 0) {
             project.endDate = endDate;
         }
     }

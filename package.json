@@ -45,6 +45,7 @@
     "fund-cchain-addresses": "npx hardhat run scripts/fund-cchain-addresses.js"
   },
   "dependencies": {
+    "@openzeppelin/test-helpers": "^0.5.16",
     "dotenv": "^16.4.5",
     "typescript": "^4.5.4"
   },
