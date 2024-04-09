@@ -96,23 +96,14 @@ contract Crowdfunding is Ownable {
         projects[projectId].status = STATUS.DELETED;
     }
 
-    function getAllProjects(STATUS filterStatus) public view returns (uint256[] memory) {
+    function getAllProjects() public view returns (uint256[] memory) {
         uint256 projectCount = _projectIds;
-        uint256 filteredCount = 0;
 
-        for (uint256 i = 1; i <= projectCount; i++) {
-            if (projects[i].status == filterStatus) {
-                filteredCount++;
-            }
-        }
-
-        uint256[] memory filteredProjects = new uint256[](filteredCount);
+        uint256[] memory filteredProjects = new uint256[](projectCount);
         uint256 filteredIndex = 0;
         for (uint256 i = 1; i <= projectCount; i++) {
-            if (projects[i].status == filterStatus) {
-                filteredProjects[filteredIndex] = projects[i].id;
-                filteredIndex++;
-            }
+            filteredProjects[filteredIndex] = projects[i].id;
+            filteredIndex++;
         }
 
         return filteredProjects;
