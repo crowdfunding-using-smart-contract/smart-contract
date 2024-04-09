@@ -14,7 +14,6 @@ contract Crowdfunding is Ownable {
     struct Project {
         uint256 id;
         string title;
-        string description;
         uint256 targetFunding;
         uint256 currentFunding;
         uint256 startDate;
@@ -41,7 +40,6 @@ contract Crowdfunding is Ownable {
 
     function createProject(
         string memory title,
-        string memory description,
         uint256 targetFunding,
         uint256 startDate,
         uint256 endDate
@@ -52,7 +50,6 @@ contract Crowdfunding is Ownable {
         projects[newProjectId] = Project({
             id: newProjectId,
             title: title,
-            description: description,
             targetFunding: targetFunding,
             currentFunding: 0,
             startDate: startDate,
@@ -85,7 +82,7 @@ contract Crowdfunding is Ownable {
         uint256 contributedAmount = contributions[projectId][msg.sender];
         require(contributedAmount > 0, "No contributions to refund");
 
-        contributions[projectId][msg.sender] = 0; // Prevent re-entrancy
+        contributions[projectId][msg.sender] = 0;
         require(_token.transfer(msg.sender, contributedAmount), "Refund failed");
 
         emit ContributionRefunded(projectId, contributedAmount, msg.sender);
@@ -116,7 +113,6 @@ contract Crowdfunding is Ownable {
     function editProject(
         uint256 projectId,
         string memory title,
-        string memory description,
         uint256 targetFunding,
         uint256 startDate,
         uint256 endDate
@@ -126,9 +122,6 @@ contract Crowdfunding is Ownable {
 
         if (bytes(title).length > 0) {
             project.title = title;
-        }
-        if (bytes(description).length > 0) {
-            project.description = description;
         }
         if (targetFunding > 0) {
             project.targetFunding = targetFunding;
