@@ -3,12 +3,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./Escrow.sol";
 
 contract Crowdfunding is Ownable {
     IERC20 private _token;
+    Escrow private _escrow;
 
-    constructor(IERC20 tokenAddress, address initialOwner) Ownable(initialOwner) {
+    constructor(IERC20 tokenAddress, address initialOwner, address escrowAddress) Ownable(initialOwner) {
         _token = tokenAddress;
+        _escrow = Escrow(escrowAddress);
     }
 
     struct Project {
@@ -31,7 +34,6 @@ contract Crowdfunding is Ownable {
 
     uint256 private _projectIds;
     mapping(uint256 => Project) public projects;
-
     mapping(uint256 => mapping(address => uint256)) public contributions;
 
     event ProjectCreated(uint256 indexed projectId, string title, address owner);
@@ -65,12 +67,16 @@ contract Crowdfunding is Ownable {
         Project storage project = projects[projectId];
         require(project.status == STATUS.ACTIVE, "Project must be active");
         require(block.timestamp >= project.startDate && block.timestamp <= project.endDate, "Project not in funding period");
-        require(_token.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
+
+        _token.transferFrom(msg.sender, address(_escrow), amount);
+
+        _escrow.holdFunds(projectId, msg.sender, amount);
 
         project.currentFunding += amount;
         contributions[projectId][msg.sender] += amount;
+
         emit ContributionMade(projectId, amount, msg.sender);
-        
+
         if (project.currentFunding >= project.targetFunding) {
             project.status = STATUS.SUCCESSFUL;
         }
@@ -79,12 +85,11 @@ contract Crowdfunding is Ownable {
     function refund(uint256 projectId) public {
         Project storage project = projects[projectId];
         require(project.status == STATUS.UNSUCCESSFUL || block.timestamp > project.endDate, "Refunds not allowed");
+        
         uint256 contributedAmount = contributions[projectId][msg.sender];
         require(contributedAmount > 0, "No contributions to refund");
 
-        contributions[projectId][msg.sender] = 0;
-        require(_token.transfer(msg.sender, contributedAmount), "Refund failed");
-
+        _escrow.refundContributor(projectId, msg.sender);
         emit ContributionRefunded(projectId, contributedAmount, msg.sender);
     }
 

@@ -8,10 +8,17 @@ async function main() {
 
     const [deployer] = await ethers.getSigners();
 
+    const Escrow = await ethers.getContractFactory("Escrow");
+    const escrow = await Escrow.deploy(token.address, deployer.address);
+    await escrow.deployed();
+    console.log(`Escrow deployed to: ${escrow.address}`);
+
     const Crowdfunding = await ethers.getContractFactory("Crowdfunding");
-    const crowdfunding = await Crowdfunding.deploy(token.address, deployer.address);
+    const crowdfunding = await Crowdfunding.deploy(token.address, deployer.address, escrow.address);
     await crowdfunding.deployed();
     console.log(`Crowdfunding deployed to: ${crowdfunding.address}`);
+
+    await escrow.setCrowdfundingContract(crowdfunding.address);
 }
 
 main().catch((error) => {

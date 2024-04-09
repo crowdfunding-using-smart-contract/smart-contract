@@ -8,12 +8,8 @@ contract Escrow is Ownable {
     IERC20 private _token;
     address private _crowdfundingContract;
 
-    constructor(IERC20 tokenAddress, address initialOwner) Ownable(initialOwner) {
-        _token = tokenAddress;
-    }
-
-    mapping(uint256 => address) private _projectOwners;
     mapping(uint256 => mapping(address => uint256)) private _contributions;
+    mapping(uint256 => uint256) private _projectTotalFunds;
 
     event FundsHeld(uint256 indexed projectId, address indexed contributor, uint256 amount);
     event FundsReleasedToOwner(uint256 indexed projectId, uint256 amount);
@@ -24,27 +20,29 @@ contract Escrow is Ownable {
         _;
     }
 
+    constructor(IERC20 tokenAddress, address initialOwner) Ownable(initialOwner) {
+        _token = tokenAddress;
+    }
+
     function setCrowdfundingContract(address crowdfundingContract) external onlyOwner {
         _crowdfundingContract = crowdfundingContract;
     }
 
     function holdFunds(uint256 projectId, address contributor, uint256 amount) external onlyCrowdfundingContract {
         require(_token.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
-
+        
         _contributions[projectId][contributor] += amount;
+        _projectTotalFunds[projectId] += amount;
+
         emit FundsHeld(projectId, contributor, amount);
     }
 
-    function setProjectOwner(uint256 projectId, address owner) external onlyCrowdfundingContract {
-        _projectOwners[projectId] = owner;
-    }
-
     function releaseFundsToOwner(uint256 projectId) external onlyCrowdfundingContract {
-        address projectOwner = _projectOwners[projectId];
-        require(projectOwner != address(0), "Project owner not set");
+        uint256 totalFunds = _projectTotalFunds[projectId];
+        require(totalFunds > 0, "No funds to release");
 
-        uint256 totalFunds = _token.balanceOf(address(this));
-        require(_token.transfer(projectOwner, totalFunds), "Transfer to project owner failed");
+        _projectTotalFunds[projectId] = 0;
+        require(_token.transfer(_crowdfundingContract, totalFunds), "Transfer to project owner failed");
 
         emit FundsReleasedToOwner(projectId, totalFunds);
     }
