@@ -10,6 +10,7 @@ contract Escrow is Ownable {
 
     mapping(uint256 => mapping(address => uint256)) private _contributions;
     mapping(uint256 => uint256) private _projectTotalFunds;
+    mapping(uint256 => address[]) private _projectContributors;
 
     event FundsHeld(uint256 indexed projectId, address indexed contributor, uint256 amount);
     event FundsReleasedToOwner(uint256 indexed projectId, uint256 amount);
@@ -31,6 +32,10 @@ contract Escrow is Ownable {
     function holdFunds(uint256 projectId, address contributor, uint256 amount) external onlyCrowdfundingContract {
         require(_token.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
         
+        if (_contributions[projectId][contributor] == 0) {
+            _projectContributors[projectId].push(contributor);
+        }
+
         _contributions[projectId][contributor] += amount;
         _projectTotalFunds[projectId] += amount;
 
@@ -55,5 +60,22 @@ contract Escrow is Ownable {
         require(_token.transfer(contributor, contributedAmount), "Refund failed");
 
         emit RefundIssued(projectId, contributor, contributedAmount);
+    }
+
+    function releaseFundsToContributors(uint256 projectId) external onlyCrowdfundingContract {
+        require(_projectTotalFunds[projectId] > 0, "No funds to release");
+        
+        for (uint i = 0; i < _projectContributors[projectId].length; i++) {
+            address contributor = _projectContributors[projectId][i];
+            uint256 contributedAmount = _contributions[projectId][contributor];
+            
+            if (contributedAmount > 0) {
+                _contributions[projectId][contributor] = 0;
+                require(_token.transfer(contributor, contributedAmount), "Refund failed");
+                emit RefundIssued(projectId, contributor, contributedAmount);
+            }
+        }
+        
+        _projectTotalFunds[projectId] = 0;
     }
 }

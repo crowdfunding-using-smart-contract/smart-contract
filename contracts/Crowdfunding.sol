@@ -23,7 +23,6 @@ contract Crowdfunding is Ownable {
         uint256 endDate;
         address owner;
         STATUS status;
-        address[] contributors;
         uint256 count_contributors;
     }
 
@@ -47,30 +46,43 @@ contract Crowdfunding is Ownable {
         uint256 targetFunding,
         uint256 startDate,
         uint256 endDate
-    ) public {
+    ) public returns (Project memory) {
         _projectIds++;
         uint256 newProjectId = _projectIds;
 
-        Project storage newProject = projects[newProjectId];
-        newProject.id = newProjectId;
-        newProject.title = title;
-        newProject.targetFunding = targetFunding;
-        newProject.currentFunding = 0;
-        newProject.startDate = startDate;
-        newProject.endDate = endDate;
-        newProject.owner = msg.sender;
-        newProject.status = STATUS.ACTIVE;
-        newProject.count_contributors = 0;
+        projects[newProjectId] = Project({
+            id: newProjectId,
+            title: title,
+            targetFunding: targetFunding,
+            currentFunding: 0,
+            startDate: startDate,
+            endDate: endDate,
+            owner: msg.sender,
+            status: STATUS.ACTIVE,
+            count_contributors: 0
+        });
 
         emit ProjectCreated(newProjectId, title, msg.sender);
+
+        return Project({
+            id: newProjectId,
+            title: title,
+            targetFunding: targetFunding,
+            currentFunding: 0,
+            startDate: startDate,
+            endDate: endDate,
+            owner: msg.sender,
+            status: STATUS.ACTIVE,
+            count_contributors: 0
+        });
     }
 
+    // sync with escrow contract
     function contribute(uint256 projectId, uint256 amount) public {
+        tryFinalizeProject(projectId);
         Project storage project = projects[projectId];
         require(project.status == STATUS.ACTIVE, "Project must be active");
         require(block.timestamp >= project.startDate && block.timestamp <= project.endDate, "Project not in funding period");
-
-        _token.transferFrom(msg.sender, address(_escrow), amount);
 
         _escrow.holdFunds(projectId, msg.sender, amount);
 
@@ -84,10 +96,11 @@ contract Crowdfunding is Ownable {
         }
     }
 
+    // sync with escrow contract
     function refund(uint256 projectId) public {
+        tryFinalizeProject(projectId);
         Project storage project = projects[projectId];
-        require(project.status == STATUS.UNSUCCESSFUL || block.timestamp > project.endDate, "Refunds not allowed");
-        
+        require(project.status == STATUS.UNSUCCESSFUL || block.timestamp > project.endDate, "Refunds not allowed");        
         uint256 contributedAmount = contributions[projectId][msg.sender];
         require(contributedAmount > 0, "No contributions to refund");
 
@@ -96,6 +109,7 @@ contract Crowdfunding is Ownable {
     }
 
     function deleteProject(uint256 projectId) public {
+        tryFinalizeProject(projectId);
         require(msg.sender == projects[projectId].owner, "Only the owner can delete the project.");
         projects[projectId].status = STATUS.DELETED;
     }
@@ -124,6 +138,7 @@ contract Crowdfunding is Ownable {
         uint256 startDate,
         uint256 endDate
     ) public {
+        tryFinalizeProject(projectId);
         require(msg.sender == projects[projectId].owner, "Only the owner can edit the project.");
         Project storage project = projects[projectId];
 
@@ -140,4 +155,26 @@ contract Crowdfunding is Ownable {
             project.endDate = endDate;
         }
     }
+
+    function tryFinalizeProject(uint256 projectId) internal {
+        Project storage project = projects[projectId];
+        if (block.timestamp > project.endDate && project.status == STATUS.ACTIVE) {
+            finalizeProject(projectId);
+        }
+    }
+
+    function finalizeProject(uint256 projectId) public {
+        Project storage project = projects[projectId];
+        require(block.timestamp > project.endDate, "Project is still ongoing");
+        require(project.status == STATUS.ACTIVE, "Project is not active");
+
+        if (project.currentFunding >= project.targetFunding) {
+            project.status = STATUS.SUCCESSFUL;
+            _escrow.releaseFundsToOwner(projectId);
+        } else {
+            project.status = STATUS.UNSUCCESSFUL;
+            _escrow.releaseFundsToContributors(projectId);
+        }
+    }
+
 }
