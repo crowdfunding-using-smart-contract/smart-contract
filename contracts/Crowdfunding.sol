@@ -23,6 +23,8 @@ contract Crowdfunding is Ownable {
         uint256 endDate;
         address owner;
         STATUS status;
+        address[] contributors;
+        uint256 count_contributors;
     }
 
     enum STATUS {
@@ -49,16 +51,16 @@ contract Crowdfunding is Ownable {
         _projectIds++;
         uint256 newProjectId = _projectIds;
 
-        projects[newProjectId] = Project({
-            id: newProjectId,
-            title: title,
-            targetFunding: targetFunding,
-            currentFunding: 0,
-            startDate: startDate,
-            endDate: endDate,
-            owner: msg.sender,
-            status: STATUS.ACTIVE
-        });
+        Project storage newProject = projects[newProjectId];
+        newProject.id = newProjectId;
+        newProject.title = title;
+        newProject.targetFunding = targetFunding;
+        newProject.currentFunding = 0;
+        newProject.startDate = startDate;
+        newProject.endDate = endDate;
+        newProject.owner = msg.sender;
+        newProject.status = STATUS.ACTIVE;
+        newProject.count_contributors = 0;
 
         emit ProjectCreated(newProjectId, title, msg.sender);
     }
@@ -98,13 +100,13 @@ contract Crowdfunding is Ownable {
         projects[projectId].status = STATUS.DELETED;
     }
 
-    function getAllProjects() public view returns (uint256[] memory) {
+    function getAllProjects() public view returns (Project[] memory) {
         uint256 projectCount = _projectIds;
 
-        uint256[] memory filteredProjects = new uint256[](projectCount);
+        Project[] memory filteredProjects = new Project[](projectCount);
         uint256 filteredIndex = 0;
         for (uint256 i = 1; i <= projectCount; i++) {
-            filteredProjects[filteredIndex] = projects[i].id;
+            filteredProjects[filteredIndex] = projects[i];
             filteredIndex++;
         }
 
