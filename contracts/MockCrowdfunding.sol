@@ -5,13 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Escrow.sol";
 
-contract Crowdfunding is Ownable {
+contract MockCrowdfunding is Ownable {
     IERC20 private _token;
-    Escrow private _escrow;
 
-    constructor(IERC20 tokenAddress, address initialOwner, address escrowAddress) Ownable(initialOwner) {
+    constructor(IERC20 tokenAddress) Ownable(msg.sender) {
         _token = tokenAddress;
-        _escrow = Escrow(escrowAddress);
     }
 
     struct Project {
@@ -39,7 +37,7 @@ contract Crowdfunding is Ownable {
 
     event ProjectCreated(uint256 indexed projectId, string title, address owner);
     event ContributionMade(uint256 indexed projectId, uint256 amount, address contributor);
-    event ContributionRefunded(uint256 indexed projectId, uint256 amount, address contributor);
+    event ContributionRefunded(uint256 indexed projectId, address contributor);
 
     function createProject(
         string memory title,
@@ -57,7 +55,7 @@ contract Crowdfunding is Ownable {
             currentFunding: 0,
             startDate: startDate,
             endDate: endDate,
-            owner: msg.sender,
+            owner: payable(msg.sender),
             status: STATUS.ACTIVE,
             count_contributors: 0
         });
@@ -77,17 +75,17 @@ contract Crowdfunding is Ownable {
         });
     }
 
-    // sync with escrow contract
     function contribute(uint256 projectId, uint256 amount) public {
-        tryFinalizeProject(projectId);
         Project storage project = projects[projectId];
         require(project.status == STATUS.ACTIVE, "Project must be active");
-        require(block.timestamp >= project.startDate && block.timestamp <= project.endDate, "Project not in funding period");
+        require(block.timestamp >= project.startDate && block.timestamp <= project.endDate, "Not in funding period");
+        require(amount > 0, "Contribution must be greater than 0");
 
-        _escrow.holdFunds(projectId, msg.sender, amount);
+        require(_token.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
 
         project.currentFunding += amount;
         contributions[projectId][msg.sender] += amount;
+        project.count_contributors += 1;
 
         emit ContributionMade(projectId, amount, msg.sender);
 
@@ -96,20 +94,22 @@ contract Crowdfunding is Ownable {
         }
     }
 
-    // sync with escrow contract
     function refund(uint256 projectId) public {
-        tryFinalizeProject(projectId);
         Project storage project = projects[projectId];
-        require(project.status == STATUS.UNSUCCESSFUL || block.timestamp > project.endDate, "Refunds not allowed");        
         uint256 contributedAmount = contributions[projectId][msg.sender];
+        
         require(contributedAmount > 0, "No contributions to refund");
+        require(project.status == STATUS.UNSUCCESSFUL || (project.status == STATUS.ACTIVE && block.timestamp > project.endDate), "Refunds not allowed");
+        
+        contributions[projectId][msg.sender] = 0;
+        project.currentFunding -= contributedAmount;
 
-        _escrow.refundContributor(projectId, msg.sender);
-        emit ContributionRefunded(projectId, contributedAmount, msg.sender);
+        require(_token.transfer(msg.sender, contributedAmount), "Refund failed");
+
+        emit ContributionRefunded(projectId, msg.sender);
     }
 
     function deleteProject(uint256 projectId) public {
-        tryFinalizeProject(projectId);
         require(msg.sender == projects[projectId].owner, "Only the owner can delete the project.");
         projects[projectId].status = STATUS.DELETED;
     }
@@ -138,7 +138,6 @@ contract Crowdfunding is Ownable {
         uint256 startDate,
         uint256 endDate
     ) public {
-        tryFinalizeProject(projectId);
         require(msg.sender == projects[projectId].owner, "Only the owner can edit the project.");
         Project storage project = projects[projectId];
 
@@ -155,26 +154,4 @@ contract Crowdfunding is Ownable {
             project.endDate = endDate;
         }
     }
-
-    function tryFinalizeProject(uint256 projectId) internal {
-        Project storage project = projects[projectId];
-        if (block.timestamp > project.endDate && project.status == STATUS.ACTIVE) {
-            finalizeProject(projectId);
-        }
-    }
-
-    function finalizeProject(uint256 projectId) public {
-        Project storage project = projects[projectId];
-        require(block.timestamp > project.endDate, "Project is still ongoing");
-        require(project.status == STATUS.ACTIVE, "Project is not active");
-
-        if (project.currentFunding >= project.targetFunding) {
-            project.status = STATUS.SUCCESSFUL;
-            _escrow.releaseFundsToOwner(projectId);
-        } else {
-            project.status = STATUS.UNSUCCESSFUL;
-            _escrow.releaseFundsToContributors(projectId);
-        }
-    }
-
 }
